@@ -4,6 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>WG Stuttgart</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#3F6E68">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="WG Stuttgart">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png" type="image/png">
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400;0,500;0,600;0,700;1,500&family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap');
 
@@ -281,6 +289,7 @@
   .due-info { flex: 1; min-width: 0; }
   .due-name { font-weight: 600; font-size: 14px; }
   .due-sub { font-size: 12px; color: var(--ink-soft); margin-top: 2px; }
+  .due-icon { width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 15px; }
 
   .history-row {
     display: flex;
@@ -1697,11 +1706,12 @@ function renderDueToday() {
   const todayStr = fmtDate(new Date());
   const wd = mondayIndex(new Date());
   const due = state.chores.filter(c => (c.type === 'weekly' && c.weekday === wd) || (c.type === 'once' && c.date === todayStr));
-  if (!due.length) {
+  const todaysEvents = state.events.filter(ev => ev.date === todayStr);
+  if (!due.length && !todaysEvents.length) {
     el.innerHTML = `<div class="empty-state" style="padding:22px 16px;"><p>${T('noDueToday')}</p></div>`;
     return;
   }
-  el.innerHTML = due.map(c => {
+  const choreRows = due.map(c => {
     const activeIds = getAssigneesForDate(c, todayStr);
     const names = activeIds.map(id => personById(id)?.name).filter(Boolean).join(', ');
     const done = !!c.completed[todayStr];
@@ -1715,6 +1725,19 @@ function renderDueToday() {
       </div>
     `;
   }).join('');
+  const eventRows = todaysEvents.map(ev => {
+    const host = personById(ev.host);
+    return `
+      <div class="due-row" style="cursor:pointer;" onclick="switchTab('events')">
+        <div class="due-icon">🎉</div>
+        <div class="due-info">
+          <div class="due-name">${escapeHtml(ev.title)}</div>
+          ${host ? `<div class="due-sub">${host.emoji} ${escapeHtml(host.name)}</div>` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+  el.innerHTML = choreRows + eventRows;
 }
 
 function selectMe(id) {
@@ -2482,6 +2505,7 @@ async function saveEvent() {
   closeSheet('eventOverlay');
   renderEventsCalendar();
   renderEventDefList();
+  renderDueToday();
   await saveKey('wg-events', state.events);
 }
 
@@ -2516,6 +2540,7 @@ async function removeEvent(id) {
   state.events = state.events.filter(e => e.id !== id);
   renderEventsCalendar();
   renderEventDefList();
+  renderDueToday();
   await saveKey('wg-events', state.events);
 }
 
